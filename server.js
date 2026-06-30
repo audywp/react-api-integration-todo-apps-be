@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const swaggerUi = require('swagger-ui-express');
 
 const swaggerSpec = require('./swagger');
 const todoRoutes = require('./routes/todos');
@@ -12,8 +11,38 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Swagger docs
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+// Raw OpenAPI JSON spec
+app.get('/api-docs.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
+// Swagger UI served via CDN assets (works reliably on Vercel serverless,
+// unlike swagger-ui-express's bundled static files)
+app.get('/api-docs', (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Todo API Docs</title>
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script>
+      window.onload = () => {
+        window.ui = SwaggerUIBundle({
+          url: '/api-docs.json',
+          dom_id: '#swagger-ui',
+          presets: [SwaggerUIBundle.presets.apis],
+        });
+      };
+    </script>
+  </body>
+</html>
+  `);
+});
 
 // Routes
 app.use('/todos', todoRoutes);
